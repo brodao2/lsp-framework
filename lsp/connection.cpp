@@ -242,10 +242,15 @@ void Connection::parseHeaderValue(MessageHeader& header, std::string_view line)
 
 		if(equalCaseInsensitive(key, "Content-Length"))
 		{
+#ifdef WIN32
+			const auto [ptr, ec] = std::from_chars(value.data(), value.data()+ value.size(), header.contentLength);
+			if (ec != std::error_code{} || ptr != value.data() + value.size())
+				throw ConnectionError("Protocol: Invalid value for Content-Length header field");
+#else
 			const auto [ptr, ec] = std::from_chars(value.begin(), value.end(), header.contentLength);
-
 			if(ec != std::error_code{} || ptr != value.end())
 				throw ConnectionError("Protocol: Invalid value for Content-Length header field");
+#endif
 		}
 		else if(equalCaseInsensitive(key, "Content-Type"))
 		{
