@@ -165,7 +165,7 @@ json::Any Connection::readMessage()
 
 		std::string content;
 		content.resize(header.contentLength);
-		reader.read(&content[0], static_cast<std::streamsize>(header.contentLength));
+		reader.read(&content[0], header.contentLength);
 
 		// Verify only after reading the entire message so no partially unread message is left in the stream
 		verifyContentType(header.contentType);
@@ -242,13 +242,11 @@ void Connection::parseHeaderValue(MessageHeader& header, std::string_view line)
 
 		if(equalCaseInsensitive(key, "Content-Length"))
 		{
-#ifdef WIN32
-			const auto [ptr, ec] = std::from_chars(value.data(), value.data()+ value.size(), header.contentLength);
-			if (ec != std::error_code{} || ptr != value.data() + value.size())
-				throw ConnectionError("Protocol: Invalid value for Content-Length header field");
-#else
-			const auto [ptr, ec] = std::from_chars(value.begin(), value.end(), header.contentLength);
-			if(ec != std::error_code{} || ptr != value.end())
+			const auto* first    = value.data();
+			const auto* last     = first + value.size();
+			const auto [ptr, ec] = std::from_chars(first, last, header.contentLength);
+
+			if(ec != std::error_code{} || ptr != last)
 				throw ConnectionError("Protocol: Invalid value for Content-Length header field");
 #endif
 		}
@@ -287,7 +285,7 @@ void Connection::writeMessageData(const std::string& content)
 	std::lock_guard lock{m_writeMutex};
 	MessageHeader header{content.size()};
 	const auto messageStr = messageHeaderString(header) + content;
-	m_stream.write(messageStr.data(), static_cast<std::streamsize>(messageStr.size()));
+	m_stream.write(messageStr.data(), messageStr.size());
 }
 
 std::string Connection::messageHeaderString(const MessageHeader& header)
